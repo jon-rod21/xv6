@@ -348,7 +348,10 @@ scheduler(void)
 
 		if (total_tickets > 0)
 		{
-			winning_ticket = rand() % total_tickets;
+			int r1 = rand();
+			int r2 = rand();
+			unsigned long bigrand = ((unsigned long) r1 << 15) ^ (unsigned long)r2;
+			winning_ticket = bigrand % total_tickets;
 		}
 
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
