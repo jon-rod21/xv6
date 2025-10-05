@@ -26,6 +26,7 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
+// Added sys calls
 int settickets(int);
 int getpinfo(struct pstat *);
 

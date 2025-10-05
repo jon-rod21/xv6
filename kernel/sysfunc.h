@@ -23,6 +23,7 @@ int sys_unlink(void);
 int sys_wait(void);
 int sys_write(void);
 int sys_uptime(void);
+// Added sys call handlers
 int sys_settickets(void);
 int sys_getpinfo(void);
 

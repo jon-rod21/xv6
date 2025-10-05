@@ -10,9 +10,10 @@
 #define SEG_TSS   6  // this process's task state
 #define NSEGS     7
 
-// Added by jonathan rodriguez jdr220004
+// The following code is added by jonathan rodriguez jdr220004
 #include "pstat.h"
 #include "spinlock.h"
+/* End of added code */
 
 // Per-CPU state
 struct cpu {
@@ -79,9 +80,13 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
   
+	/* The following code was added by jonathan rodriguez jdr220004
+   * added lottery fields necessary for proc to work with new scheduler
+   */
   int tickets;
   int ticks;
   int inuse;
+	/* end of added code */
 };
 
 // Process memory is laid out contiguously, low addresses first:

@@ -5,6 +5,7 @@
 #include "mmu.h"
 #include "proc.h"
 #include "sysfunc.h"
+// added pstat.h
 #include "pstat.h"
 
 int
@@ -90,6 +91,9 @@ sys_uptime(void)
   return xticks;
 }
 
+/* The following code is added by jonathan rodriguez jdr220004
+ * implementing the syscalls
+ */
 int
 sys_settickets(void)
 {
@@ -131,5 +135,5 @@ sys_getpinfo(void)
 
   return 0;
 }
-
+/* End of code added */
 
