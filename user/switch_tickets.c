@@ -119,6 +119,7 @@ main(int argc, char *argv[])
 
 				printf(1, "set low tickets for process B\n");
 				check(settickets(low_tickets) == 0, "settickets");
+			
 				char buf[1];
 				if (read(pipe_2[0], buf, sizeof(char)) < 0) {
 					printf(1, "ERROR READING\n");

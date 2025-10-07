@@ -1,4 +1,4 @@
-# include "types.h"
+#include "types.h"
 #include "defs.h"
 #include "param.h"
 #include "mmu.h"
@@ -22,11 +22,7 @@ static void wakeup1(void *chan);
  */
 int total_tickets;
 
-
-
-
 static unsigned long rand_next = 1;
-
 
 void
 srand(unsigned int seed)
@@ -37,8 +33,12 @@ srand(unsigned int seed)
 int
 rand(void)
 {
-	rand_next = rand_next * 1103515245 + 12345;
-	return (unsigned int)(rand_next >> 16) & 0x7FFF;
+	//rand_next = rand_next * 1103515245 + 12345;
+	//return (unsigned int)(rand_next >> 10) & 0x7FFF;
+	rand_next ^= rand_next << 13;
+	rand_next ^= rand_next >> 17;
+	rand_next ^= rand_next << 5;
+	return rand_next;
 }
 
 void 
@@ -46,6 +46,22 @@ setproctickets(struct proc* p, int n)
 {
   total_tickets -= p->tickets;
   p->tickets = n;
+  total_tickets += p->tickets;
+}
+
+void
+storetickets(struct proc* p)
+{
+  if(p->state != SLEEPING)
+    panic("Not sleeping at storetickets");
+  total_tickets -= p->tickets;
+}
+
+void
+restoretickets(struct proc* p)
+{
+  if(p->state != SLEEPING)
+    panic("Not sleeping at restoretickets");
   total_tickets += p->tickets;
 }
 /* End of code added */
@@ -80,7 +96,6 @@ found:
 	/* The following code was added by jonathan rodriguez jdr220004
  * initializes the new fields in proc
  */
-	p->tickets = 1;
 	p->ticks = 0;
 	p->inuse = 1;
 	total_tickets += 1;
@@ -91,8 +106,8 @@ found:
   if((p->kstack = kalloc()) == 0){
     p->state = UNUSED;
 		/* The following code is added by jonathan rodriguez jdr220004
- *  undo ticket allocation for failed kalloc() to keep total consistent
- */
+     *  undo ticket allocation for failed kalloc() to keep total consistent
+     */
 		acquire(&ptable.lock);
 		setproctickets(p, 0);
 		release(&ptable.lock);
@@ -295,7 +310,6 @@ wait(void)
         */
 				p->ticks = 0;
 				p->inuse = 0;
-				p->tickets = 0;
 				setproctickets(p, 0);
         release(&ptable.lock);
 				/* end of added code */
@@ -329,6 +343,10 @@ scheduler(void)
   *  the scheduler picks a winning ticket picked at random by the random number generator
   *  then loops through to find the process with the matching ticket number and runs it
   */
+
+	acquire(&ptable.lock);
+	setproctickets(ptable.proc, 1);
+	release(&ptable.lock);
 	static int seeded = 0;
 	if (!seeded)
 	{
@@ -350,34 +368,36 @@ scheduler(void)
 		{
 			int r1 = rand();
 			int r2 = rand();
-			unsigned long bigrand = ((unsigned long) r1 << 15) ^ (unsigned long)r2;
+			unsigned long bigrand = ((unsigned long) r1 << 5) ^ (unsigned long)r2;
 			winning_ticket = bigrand % total_tickets;
 		}
 
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->state != RUNNABLE)
+			{
         continue;
+			}
 
 			ticket_count += p->tickets;
-	
-			if (ticket_count > winning_ticket)
+			if (ticket_count < winning_ticket)
 			{
-				proc = p;
-				switchuvm(p);
-				p->state = RUNNING;
-				p->inuse = 1;
-
-				int start_ticks = ticks;
-			
-				swtch(&cpu->scheduler, proc->context);
-				p->ticks += ticks - start_ticks;
-
-				switchkvm();
-
-				proc = 0;
-
-				break;
+				continue;
 			}
+	
+			proc = p;
+			switchuvm(p);
+			p->state = RUNNING;
+			p->inuse = 1;
+
+			int start_ticks = ticks;
+			
+			swtch(&cpu->scheduler, proc->context);
+			p->ticks += ticks - start_ticks;
+
+			switchkvm();
+
+			proc = 0;
+			break;
     }
 		/* end of added/modified code */
     release(&ptable.lock);
@@ -451,6 +471,11 @@ sleep(void *chan, struct spinlock *lk)
   // Go to sleep.
   proc->chan = chan;
   proc->state = SLEEPING;
+	/* The following code was added by jonathan rodriguez jdr220004
+   * removes tickets from sleeping processes from the total ticket count
+   */
+	storetickets(proc);
+	/* End of added code */
   sched();
 
   // Tidy up.
@@ -472,7 +497,14 @@ wakeup1(void *chan)
 
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
     if(p->state == SLEEPING && p->chan == chan)
+		/* The following code was added/modified by jonathan rodriguez jdr220004
+     * add the awoken processes tickets back to the ticket pool
+     */
+		{
+			restoretickets(p);
       p->state = RUNNABLE;
+		}
+		/* End of added code */
 }
 
 // Wake up all processes sleeping on chan.
@@ -498,7 +530,14 @@ kill(int pid)
       p->killed = 1;
       // Wake process from sleep if necessary.
       if(p->state == SLEEPING)
+			/* The following code was added/modified by jonathan rodriguez jdr220004
+       * restore tickets to the total before killing
+       */
+			{
+				restoretickets(p);
         p->state = RUNNABLE;
+			}
+			/* End of added code */
       release(&ptable.lock);
       return 0;
     }
